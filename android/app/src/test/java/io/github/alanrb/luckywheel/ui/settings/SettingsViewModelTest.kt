@@ -154,7 +154,8 @@ class SettingsViewModelTest {
     @Test
     fun restockFromZero_reappearsOnWheel() {
         runBlocking { prizes.replaceAll(stored().map { if (it.name == "Ly giữ nhiệt") it.copy(quantity = 0) else it }) }
-        await { stored().single { it.name == "Ly giữ nhiệt" }.quantity == 0 }
+        // discard() copies the ViewModel's view of the stored list, so wait for that, not just the database.
+        await { vm.state.value.stored.single { it.name == "Ly giữ nhiệt" }.quantity == 0 }
         vm.discard()
         await { vm.state.value.draft.single { it.name == "Ly giữ nhiệt" }.quantity == 0 }
         vm.openEditor(draftId("Ly giữ nhiệt"))
