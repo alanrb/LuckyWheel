@@ -20,6 +20,9 @@ import io.github.alanrb.luckywheel.domain.RandomSource
 import io.github.alanrb.luckywheel.domain.SecureRandomSource
 import io.github.alanrb.luckywheel.sound.SoundEffects
 import io.github.alanrb.luckywheel.sound.SoundPoolEffects
+import io.github.alanrb.luckywheel.ui.pin.CreatePinViewModel
+import io.github.alanrb.luckywheel.ui.pin.PinEntryViewModel
+import io.github.alanrb.luckywheel.ui.settings.SettingsViewModel
 import io.github.alanrb.luckywheel.ui.wheel.WheelViewModel
 
 /** Manual dependency injection: one instance per process, swapped for fakes in tests. */
@@ -34,6 +37,11 @@ class AppContainer(
 ) {
     val wheelViewModelFactory = viewModelFactory {
         initializer { WheelViewModel(prizeRepository, settingsRepository, random, clock, createSavedStateHandle()) }
+    }
+    val pinEntryViewModelFactory = viewModelFactory { initializer { PinEntryViewModel(pinManager) } }
+    val createPinViewModelFactory = viewModelFactory { initializer { CreatePinViewModel(pinManager) } }
+    val settingsViewModelFactory = viewModelFactory {
+        initializer { SettingsViewModel(prizeRepository, settingsRepository, pinManager, imageStore) }
     }
 
     suspend fun seedPrizesIfEmpty(context: Context) {
