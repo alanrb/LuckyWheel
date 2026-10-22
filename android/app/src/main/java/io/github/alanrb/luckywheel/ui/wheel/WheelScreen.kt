@@ -69,6 +69,8 @@ import io.github.alanrb.luckywheel.domain.flickStrength
 import io.github.alanrb.luckywheel.domain.rotationAt
 import io.github.alanrb.luckywheel.domain.sliceIndexUnderPointer
 import io.github.alanrb.luckywheel.sound.SoundEffects
+import io.github.alanrb.luckywheel.ui.effects.ResultEffects
+import io.github.alanrb.luckywheel.ui.effects.ThemeDecorations
 import io.github.alanrb.luckywheel.ui.rememberStoredImage
 import io.github.alanrb.luckywheel.ui.theme.AppText
 import io.github.alanrb.luckywheel.ui.themes.ThemeBackground
@@ -114,6 +116,7 @@ fun WheelScreen(
     val idle = state.phase == SpinPhase.Idle
 
     KeepScreenOn(state.settings.keepScreenOn)
+    ResultSound(state, theme, sounds)
 
     val rotation = remember { mutableFloatStateOf(state.restRotation.toFloat()) }
     val dragOffset = remember { mutableFloatStateOf(0f) }
@@ -153,7 +156,9 @@ fun WheelScreen(
     BoxWithConstraints(modifier.fillMaxSize().background(Color.Black)) {
         val layout = wheelLayout(maxWidth.value, maxHeight.value, hasLogo = state.settings.logoPath != null)
         val u = layout.unit
-        ThemeBackground(theme, background, unitPx = u * LocalDensity.current.density, Modifier.fillMaxSize())
+        val unitPx = u * LocalDensity.current.density
+        ThemeBackground(theme, background, unitPx, Modifier.fillMaxSize())
+        if (state.settings.showThemeDecorations) ThemeDecorations(theme, unitPx, Modifier.fillMaxSize())
 
         val wheel: @Composable () -> Unit = {
             WheelWithState(state, theme, layout, outOfPrizes, dragModifier) {
@@ -211,7 +216,9 @@ fun WheelScreen(
 
         val revealed = state.phase as? SpinPhase.Revealed
         if (revealed != null) {
-            ResultOverlay(revealed, theme, u, state.settings.resultDisplaySeconds, actions.onDismissResult)
+            ResultOverlay(revealed, theme, u, state.settings.resultDisplaySeconds, actions.onDismissResult) {
+                ResultEffects(theme, revealed.isReal, revealed.revealId, unitPx, Modifier.fillMaxSize())
+            }
         }
     }
 }
@@ -352,6 +359,17 @@ private fun TickSounds(
             if (last >= 0 && index != last && moving && s.settings.soundEnabled) sounds.tick(theme.id)
             last = index
         }
+    }
+}
+
+/** RS-02: the theme's win sound for a real prize, a soft one for the fallback. */
+@Composable
+private fun ResultSound(state: WheelUiState, theme: ThemeSpec, sounds: SoundEffects) {
+    val revealed = state.phase as? SpinPhase.Revealed
+    val soundOn = state.settings.soundEnabled
+    LaunchedEffect(revealed?.revealId) {
+        if (revealed == null || !soundOn) return@LaunchedEffect
+        if (revealed.isReal) sounds.win(theme.id) else sounds.lose()
     }
 }
 

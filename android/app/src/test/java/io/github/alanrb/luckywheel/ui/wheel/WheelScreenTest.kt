@@ -20,7 +20,8 @@ import io.github.alanrb.luckywheel.data.TestDataStore
 import io.github.alanrb.luckywheel.data.seedPrizes
 import io.github.alanrb.luckywheel.domain.Clock
 import io.github.alanrb.luckywheel.domain.SeededRandomSource
-import io.github.alanrb.luckywheel.sound.NoSound
+import io.github.alanrb.luckywheel.domain.ThemeId
+import io.github.alanrb.luckywheel.sound.SoundEffects
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -53,7 +54,19 @@ class WheelScreenTest {
         override fun elapsedMs() = compose.mainClock.currentTime
     }
     private lateinit var vm: WheelViewModel
+    private lateinit var settings: SettingsRepository
     private var cornerHolds = 0
+
+    private class RecordingSounds : SoundEffects {
+        var ticks = 0
+        var wins = 0
+        var loses = 0
+        override fun tick(theme: ThemeId) { ticks++ }
+        override fun win(theme: ThemeId) { wins++ }
+        override fun lose() { loses++ }
+    }
+
+    private val sounds = RecordingSounds()
 
     @Before
     fun setUp() {
@@ -64,13 +77,14 @@ class WheelScreenTest {
         prizes = PrizeRepository(db)
         ds = TestDataStore(tmp.newFile("s.preferences_pb").also { it.delete() })
         runBlocking { prizes.seedIfEmpty(seedPrizes("Chúc may mắn lần sau", "Giảm 10%", "Cà phê sữa đá", "Ly giữ nhiệt")) }
-        vm = WheelViewModel(prizes, SettingsRepository(ds.store), SeededRandomSource(11), clock, SavedStateHandle())
+        settings = SettingsRepository(ds.store)
+        vm = WheelViewModel(prizes, settings, SeededRandomSource(11), clock, SavedStateHandle())
         compose.setContent {
             val state by vm.state.collectAsStateWithLifecycle()
             WheelScreen(
                 state = state,
                 clock = clock,
-                sounds = NoSound,
+                sounds = sounds,
                 actions = WheelActions(
                     onSpin = vm::spinWithButton,
                     onFlick = vm::spinWithFlick,
@@ -214,5 +228,29 @@ class WheelScreenTest {
         compose.mainClock.advanceTimeBy(3_100)
         settle()
         assertEquals(0, cornerHolds)
+    }
+
+    @Test
+    fun spin_ticksThenOneResultSound() {
+        compose.onNodeWithTag(WheelTestTags.SPIN_BUTTON).performClick()
+        settle()
+        repeat(60) { compose.mainClock.advanceTimeByFrame() }
+        compose.waitForIdle()
+        assertTrue("ticks=${sounds.ticks}", sounds.ticks > 0)
+        finishSpin()
+        val revealed = phase() as SpinPhase.Revealed
+        assertEquals(1, sounds.wins + sounds.loses)
+        assertEquals(if (revealed.isReal) 1 else 0, sounds.wins)
+    }
+
+    @Test
+    fun soundOff_silent() {
+        runBlocking { settings.update { it.copy(soundEnabled = false) } }
+        awaitCondition { !vm.state.value.settings.soundEnabled }
+        compose.onNodeWithTag(WheelTestTags.SPIN_BUTTON).performClick()
+        settle()
+        repeat(60) { compose.mainClock.advanceTimeByFrame() }
+        finishSpin()
+        assertEquals(0, sounds.ticks + sounds.wins + sounds.loses)
     }
 }
