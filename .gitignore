@@ -33,3 +33,7 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# macOS and local tooling
+.DS_Store
+.superpowers/
