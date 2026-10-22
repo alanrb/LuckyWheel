@@ -57,7 +57,7 @@ Package `io.github.alanrb.luckywheel`. Manual DI: `AppContainer` (created in `Lu
   - `ImageStore`, which copies picked images, downscaled, into `filesDir/images`.
 - **Spin flow** is in `ui/wheel/WheelViewModel`:
   - The outcome is drawn when the spin starts. The `SpinPlan` and its start time are kept in `SavedStateHandle`.
-  - The screen computes the rotation from `Clock.elapsedMs()` each frame. It does not use an `Animatable`, so the spin survives rotation, backgrounding and process recreation.
+  - The screen computes the rotation from `Clock.elapsedMs()` each frame. It does not use an `Animatable`, so the spin survives rotation and backgrounding. A spin saved by a process that has since died carries a stale process token and is discarded unrevealed (PRD §11).
   - `onSpinAnimationFinished()` is idempotent and claims the prize. If stock ran out, it reveals the fallback instead.
 - **Customer screen** (`ui/wheel`):
   - `WheelLayout` picks a stacked or split layout scaled from the 1280×800 design (`designScale`).

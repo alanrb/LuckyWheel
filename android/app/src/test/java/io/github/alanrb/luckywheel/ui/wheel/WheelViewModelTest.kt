@@ -61,8 +61,8 @@ class WheelViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun vm(random: ScriptedRandomSource, saved: SavedStateHandle = SavedStateHandle()) =
-        WheelViewModel(prizes, settings, random, clock, saved).also { v -> await { v.state.value.loaded } }
+    private fun vm(random: ScriptedRandomSource, saved: SavedStateHandle = SavedStateHandle(), process: Long = 1L) =
+        WheelViewModel(prizes, settings, random, clock, saved, processToken = process).also { v -> await { v.state.value.loaded } }
 
     /** Polls until [condition] holds; flows from Room and DataStore emit on their own threads. */
     private fun await(condition: () -> Boolean) {
@@ -107,13 +107,13 @@ class WheelViewModelTest {
     }
 
     @Test
-    fun recreatedFromSavedState_revealsSamePrize() {
+    fun recreatedInSameProcess_revealsSamePrize() {
         val saved = SavedStateHandle()
         val first = vm(tumblerDraw(), saved)
         first.spinWithButton()
         val plan = (first.state.value.phase as SpinPhase.Spinning).plan
 
-        // Process death: only the saved state survives.
+        // The ViewModel is rebuilt from saved state while the process lives on.
         val restored = SavedStateHandle(saved.keys().associateWith { saved.get<Any?>(it) })
         val second = vm(ScriptedRandomSource(), restored)
         val phase = second.state.value.phase as SpinPhase.Spinning
@@ -172,5 +172,20 @@ class WheelViewModelTest {
         v.onSpinAnimationFinished()
         await { v.state.value.phase is SpinPhase.Revealed }
         assertFalse((v.state.value.phase as SpinPhase.Revealed).isReal)
+    }
+
+    @Test
+    fun processKilledMidSpin_spinDiscarded_quantityUnchanged() {
+        // PRD §5.4 / §11: a spin interrupted by process death is never revealed.
+        val saved = SavedStateHandle()
+        vm(tumblerDraw(), saved, process = 1L).spinWithButton()
+        val restored = SavedStateHandle(saved.keys().associateWith { saved.get<Any?>(it) })
+        val afterRestart = vm(ScriptedRandomSource(), restored, process = 2L)
+        assertEquals(SpinPhase.Idle, afterRestart.state.value.phase)
+        afterRestart.onSpinAnimationFinished()
+        Thread.sleep(200)
+        assertEquals(SpinPhase.Idle, afterRestart.state.value.phase)
+        assertEquals(10, tumblerQuantity())
+        assertFalse(restored.contains("spin.prizeId"))
     }
 }

@@ -16,6 +16,7 @@ import io.github.alanrb.luckywheel.domain.effectiveWheel
 import io.github.alanrb.luckywheel.domain.normalizeDegrees
 import io.github.alanrb.luckywheel.domain.planSpin
 import io.github.alanrb.luckywheel.ui.themes.themeSpec
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -57,6 +58,8 @@ class WheelViewModel(
     private val random: RandomSource,
     private val clock: Clock,
     private val savedState: SavedStateHandle,
+    /** Identifies this process, so a spin saved by a process that has since died is not revealed. */
+    private val processToken: Long = CURRENT_PROCESS,
 ) : ViewModel() {
 
     private val phase = MutableStateFlow(restoreSpin() ?: SpinPhase.Idle)
@@ -106,7 +109,13 @@ class WheelViewModel(
         if (revealing) return
         revealing = true
         viewModelScope.launch {
-            val awarded = runCatching { prizes.claimPrize(spin.prizeId) }.getOrDefault(false)
+            val awarded = try {
+                prizes.claimPrize(spin.prizeId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false
+            }
             val name = if (awarded) spin.prizeName else state.value.fallbackName
             rest.value = normalizeDegrees(spin.plan.endRotation)
             savedState[KEY_REST] = rest.value
@@ -128,16 +137,25 @@ class WheelViewModel(
         savedState[KEY_STARTED] = spin.startedAtMs
         savedState[KEY_NAME] = spin.prizeName
         savedState[KEY_FALLBACK] = spin.isFallback
+        savedState[KEY_PROCESS] = processToken
         savedState[KEY_PRIZE] = spin.prizeId
     }
 
     private fun clearSpin() {
-        listOf(KEY_PRIZE, KEY_INDEX, KEY_START, KEY_END, KEY_DURATION, KEY_STARTED, KEY_NAME, KEY_FALLBACK)
+        listOf(KEY_PROCESS, KEY_PRIZE, KEY_INDEX, KEY_START, KEY_END, KEY_DURATION, KEY_STARTED, KEY_NAME, KEY_FALLBACK)
             .forEach { savedState.remove<Any>(it) }
     }
 
+    /**
+     * A spin survives the ViewModel being rebuilt in the same process. One saved by a process that has
+     * since been killed is discarded unrevealed, leaving the quantity untouched (PRD §5.4, §11).
+     */
     private fun restoreSpin(): SpinPhase.Spinning? {
         val prizeId = savedState.get<Long>(KEY_PRIZE) ?: return null
+        if (savedState.get<Long>(KEY_PROCESS) != processToken) {
+            clearSpin()
+            return null
+        }
         return SpinPhase.Spinning(
             plan = SpinPlan(
                 outcomeIndex = savedState[KEY_INDEX] ?: return null,
@@ -152,15 +170,19 @@ class WheelViewModel(
         )
     }
 
-    private companion object {
-        const val KEY_REST = "wheel.rest"
-        const val KEY_PRIZE = "spin.prizeId"
-        const val KEY_INDEX = "spin.index"
-        const val KEY_START = "spin.start"
-        const val KEY_END = "spin.end"
-        const val KEY_DURATION = "spin.duration"
-        const val KEY_STARTED = "spin.startedAt"
-        const val KEY_NAME = "spin.name"
-        const val KEY_FALLBACK = "spin.fallback"
+    companion object {
+        /** Fixed for the lifetime of this process. */
+        val CURRENT_PROCESS: Long = java.security.SecureRandom().nextLong()
+
+        private const val KEY_REST = "wheel.rest"
+        private const val KEY_PROCESS = "spin.process"
+        private const val KEY_PRIZE = "spin.prizeId"
+        private const val KEY_INDEX = "spin.index"
+        private const val KEY_START = "spin.start"
+        private const val KEY_END = "spin.end"
+        private const val KEY_DURATION = "spin.duration"
+        private const val KEY_STARTED = "spin.startedAt"
+        private const val KEY_NAME = "spin.name"
+        private const val KEY_FALLBACK = "spin.fallback"
     }
 }
