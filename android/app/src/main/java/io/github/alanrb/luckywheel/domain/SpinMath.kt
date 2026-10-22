@@ -40,6 +40,9 @@ data class SpinPlan(
 
 private fun mod(a: Double, n: Double) = ((a % n) + n) % n
 
+/** Same visual angle in `[0, 360)`. */
+fun normalizeDegrees(deg: Double): Double = mod(deg, 360.0)
+
 /** Strength in 0..1 for a released drag, or null when it is too weak to spin (SP-03). */
 fun flickStrength(velocityDegPerSec: Double, draggedDeg: Double): Double? {
     val speed = abs(velocityDegPerSec)
