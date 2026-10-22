@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -71,6 +72,12 @@ object PrizeTags {
 }
 
 private val Tabular = AppText.copy(fontFeatureSettings = "tnum")
+
+/** Column widths; narrower on phones so the name column keeps its room. */
+private data class TableMetrics(val padding: Dp, val gap: Dp, val handle: Dp, val swatch: Dp, val percent: Dp, val remaining: Dp)
+
+private val WideTable = TableMetrics(padding = 20.dp, gap = 12.dp, handle = 24.dp, swatch = 28.dp, percent = 96.dp, remaining = 120.dp)
+private val CompactTable = TableMetrics(padding = 12.dp, gap = 8.dp, handle = 20.dp, swatch = 24.dp, percent = 60.dp, remaining = 76.dp)
 private val HiddenSwatch = Color(0xFFE4DED6)
 
 /** PR-01..PR-07: the prize list with live total, preview wheel and save. */
@@ -128,22 +135,25 @@ private fun PrizeTable(draft: List<Prize>, colorOf: Map<Long, Int>, vm: Settings
     var dragOffset by remember { mutableFloatStateOf(0f) }
     var rowHeight by remember { mutableFloatStateOf(1f) }
 
+    BoxWithConstraints(modifier) {
+    val m = if (maxWidth < 560.dp) CompactTable else WideTable
     Column(
-        modifier
+        Modifier
+            .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(AppColors.Surface)
             .border(1.dp, AppColors.Border, RoundedCornerShape(20.dp)),
     ) {
         Row(
-            Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.padding(horizontal = m.padding, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(m.gap),
         ) {
             val header = AppText.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.06.em, color = AppColors.TextLabel)
-            Spacer(Modifier.width(24.dp))
-            Spacer(Modifier.width(28.dp))
-            Text(stringResource(R.string.col_name).uppercase(), style = header, modifier = Modifier.weight(1f))
-            Text(stringResource(R.string.col_percent).uppercase(), style = header.copy(textAlign = TextAlign.End), modifier = Modifier.width(96.dp))
-            Text(stringResource(R.string.col_remaining).uppercase(), style = header.copy(textAlign = TextAlign.End), modifier = Modifier.width(120.dp))
+            Spacer(Modifier.width(m.handle))
+            Spacer(Modifier.width(m.swatch))
+            Text(stringResource(R.string.col_name).uppercase(), style = header, modifier = Modifier.weight(1f), maxLines = 1)
+            Text(stringResource(R.string.col_percent).uppercase(), style = header.copy(textAlign = TextAlign.End), modifier = Modifier.width(m.percent), maxLines = 1)
+            Text(stringResource(R.string.col_remaining).uppercase(), style = header.copy(textAlign = TextAlign.End), modifier = Modifier.width(m.remaining), maxLines = 1)
         }
         draft.forEach { prize ->
             key(prize.id) {
@@ -173,6 +183,7 @@ private fun PrizeTable(draft: List<Prize>, colorOf: Map<Long, Int>, vm: Settings
                 }
                 PrizeRow(
                     prize = prize,
+                    metrics = m,
                     swatch = colorOf[prize.id]?.let(::Color)
                         ?: if (prize.colorMode == ColorMode.CUSTOM && prize.customColor != null) Color(prize.customColor) else HiddenSwatch,
                     handleModifier = handle,
@@ -188,11 +199,19 @@ private fun PrizeTable(draft: List<Prize>, colorOf: Map<Long, Int>, vm: Settings
             }
         }
     }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PrizeRow(prize: Prize, swatch: Color, handleModifier: Modifier, onClick: () -> Unit, modifier: Modifier) {
+private fun PrizeRow(
+    prize: Prize,
+    metrics: TableMetrics,
+    swatch: Color,
+    handleModifier: Modifier,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
     val outOfStock = prize.isOutOfStock
     val handleDescription = stringResource(R.string.cd_drag_handle)
     Column(modifier.background(AppColors.Surface)) {
@@ -203,18 +222,21 @@ private fun PrizeRow(prize: Prize, swatch: Color, handleModifier: Modifier, onCl
                 .heightIn(min = 70.dp)
                 .clickable(onClick = onClick)
                 .testTag(PrizeTags.row(prize.name))
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = metrics.padding),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(metrics.gap),
         ) {
             Box(
-                handleModifier.size(width = 24.dp, height = 48.dp).semantics { contentDescription = handleDescription },
+                handleModifier.size(width = metrics.handle, height = 48.dp).semantics { contentDescription = handleDescription },
                 contentAlignment = Alignment.Center,
             ) {
                 Text("⠿", style = AppText.copy(fontSize = 22.sp, color = AppColors.Handle))
             }
-            Box(Modifier.width(28.dp)) {
-                Box(Modifier.size(26.dp).background(swatch, CircleShape).border(1.dp, Color.Black.copy(alpha = 0.12f), CircleShape))
+            Box(Modifier.width(metrics.swatch)) {
+                Box(
+                    Modifier.size(metrics.swatch - 2.dp).background(swatch, CircleShape)
+                        .border(1.dp, Color.Black.copy(alpha = 0.12f), CircleShape),
+                )
             }
             Column(Modifier.weight(1f).padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(
@@ -233,12 +255,14 @@ private fun PrizeRow(prize: Prize, swatch: Color, handleModifier: Modifier, onCl
             Text(
                 formatPercent(prize.probabilityBp),
                 style = Tabular.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppColors.Text, textAlign = TextAlign.End),
-                modifier = Modifier.width(96.dp),
+                modifier = Modifier.width(metrics.percent),
+                maxLines = 1,
             )
             Text(
                 prize.quantity?.let { stringResource(R.string.remaining_count, it) } ?: stringResource(R.string.remaining_unlimited),
                 style = Tabular.copy(fontSize = 17.sp, color = if (outOfStock) AppColors.Error else AppColors.TextNeutral, textAlign = TextAlign.End),
-                modifier = Modifier.width(120.dp),
+                modifier = Modifier.width(metrics.remaining),
+                maxLines = 1,
             )
         }
     }

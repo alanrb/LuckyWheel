@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -138,7 +139,7 @@ fun AppSwitch(checked: Boolean) {
     Box(Modifier.size(56.dp, 34.dp).background(track, RoundedCornerShape(17.dp))) {
         Box(
             Modifier
-                .offset(x = knob, y = 4.dp)
+                .offset { IntOffset(knob.roundToPx(), 4.dp.roundToPx()) }
                 .size(26.dp)
                 .shadow(2.dp, CircleShape)
                 .background(Color.White, CircleShape),

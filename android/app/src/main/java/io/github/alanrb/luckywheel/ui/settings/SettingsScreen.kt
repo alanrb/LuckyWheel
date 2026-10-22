@@ -88,16 +88,22 @@ fun SettingsScreen(state: SettingsUiState, vm: SettingsViewModel, sounds: SoundE
                 }
             },
     ) {
-        Column(Modifier.fillMaxSize()) {
-            Header(onExit)
-            BoxWithConstraints(Modifier.fillMaxSize()) {
-                val wide = maxWidth >= 900.dp
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = maxWidth >= 900.dp
+            val compactHeader = maxWidth < 700.dp
+            Column(Modifier.fillMaxSize()) {
+                Header(onExit, compact = compactHeader)
                 val content: @Composable () -> Unit = {
                     Column(
                         Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
-                            .padding(start = 36.dp, end = 36.dp, top = 28.dp, bottom = 40.dp),
+                            .padding(
+                                start = if (wide) 36.dp else 16.dp,
+                                end = if (wide) 36.dp else 16.dp,
+                                top = if (wide) 28.dp else 20.dp,
+                                bottom = if (wide) 40.dp else 32.dp,
+                            ),
                     ) {
                         when (state.section) {
                             SettingsSection.PRIZES -> PrizesSection(state, themeSpec(state.settings.themeId), vm)
@@ -151,25 +157,36 @@ fun SettingsScreen(state: SettingsUiState, vm: SettingsViewModel, sounds: SoundE
 }
 
 @Composable
-private fun Header(onExit: () -> Unit) {
+private fun Header(onExit: () -> Unit, compact: Boolean) {
     Column {
         Row(
-            Modifier.fillMaxWidth().height(76.dp).background(AppColors.HeaderBackground).padding(horizontal = 32.dp),
+            Modifier
+                .fillMaxWidth()
+                .height(if (compact) 64.dp else 76.dp)
+                .background(AppColors.HeaderBackground)
+                .padding(horizontal = if (compact) 16.dp else 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(stringResource(R.string.settings_title), style = AppText.copy(fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = AppColors.Text))
                 Text(
-                    stringResource(R.string.app_name),
-                    style = AppText.copy(fontSize = 16.sp, color = AppColors.TextMuted),
-                    modifier = Modifier.padding(bottom = 3.dp),
+                    stringResource(R.string.settings_title),
+                    style = AppText.copy(fontSize = if (compact) 22.sp else 26.sp, fontWeight = FontWeight.ExtraBold, color = AppColors.Text),
+                    maxLines = 1,
                 )
+                if (!compact) {
+                    Text(
+                        stringResource(R.string.app_name),
+                        style = AppText.copy(fontSize = 16.sp, color = AppColors.TextMuted),
+                        modifier = Modifier.padding(bottom = 3.dp),
+                        maxLines = 1,
+                    )
+                }
             }
             PillButton(
                 stringResource(R.string.back_to_wheel),
                 onClick = onExit,
-                height = 52.dp,
-                fontSize = 18.sp,
+                height = if (compact) 44.dp else 52.dp,
+                fontSize = if (compact) 15.sp else 18.sp,
                 modifier = Modifier.testTag(BACK_TO_WHEEL_TAG),
             )
         }
