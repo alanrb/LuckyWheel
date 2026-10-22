@@ -68,13 +68,14 @@ data class SettingsUiState(
     val imageError: Boolean = false,
 ) {
     val issues: List<PrizeListIssue> = validatePrizeList(draft)
-    val dirty: Boolean = draft.inOrder() != stored.inOrder()
+    val dirty: Boolean = draft.renumbered() != stored.renumbered()
     val canAdd: Boolean = draft.size < MAX_PRIZES
     val totalBp: Int = draft.sumOf { it.probabilityBp }
     val canSave: Boolean = loaded && dirty && issues.isEmpty()
 }
 
-private fun List<Prize>.inOrder() = mapIndexed { i, p -> p.copy(sortOrder = i) }
+/** List position is the slice order (WH-03); keep sortOrder in step so the preview follows edits. */
+private fun List<Prize>.renumbered() = mapIndexed { i, p -> if (p.sortOrder == i) p else p.copy(sortOrder = i) }
 
 private const val DEFAULT_CUSTOM_COLOR = 0xFFC62828.toInt()
 
@@ -153,18 +154,18 @@ class SettingsViewModel(
                 }
             }
         }
-        _state.update { it.copy(draft = draft, editor = null, justSaved = false) }
+        _state.update { it.copy(draft = draft.renumbered(), editor = null, justSaved = false) }
     }
 
     /** PR-02: the fallback prize can never be deleted. */
     fun deletePrize(id: Long) = _state.update { s ->
         if (s.draft.any { it.id == id && it.isFallback }) s
-        else s.copy(draft = s.draft.filterNot { it.id == id }, editor = null, justSaved = false)
+        else s.copy(draft = s.draft.filterNot { it.id == id }.renumbered(), editor = null, justSaved = false)
     }
 
     fun move(from: Int, to: Int) = _state.update { s ->
         if (from !in s.draft.indices || to !in s.draft.indices || from == to) s
-        else s.copy(draft = s.draft.toMutableList().apply { add(to, removeAt(from)) }, justSaved = false)
+        else s.copy(draft = s.draft.toMutableList().apply { add(to, removeAt(from)) }.renumbered(), justSaved = false)
     }
 
     fun save() {

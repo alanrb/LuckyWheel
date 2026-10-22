@@ -227,4 +227,21 @@ class SettingsViewModelTest {
         assertEquals(1, vm.state.value.changePin?.step)
         assertTrue(runBlocking { pins.matchesCurrent("1234") })
     }
+
+    @Test
+    fun reorder_previewFollowsDraftOrderBeforeSave() {
+        vm.move(from = 3, to = 0)
+        val draftNames = vm.state.value.draft.map { it.name }
+        assertEquals(listOf("Ly giữ nhiệt", "Chúc may mắn lần sau", "Giảm 10%", "Cà phê sữa đá"), draftNames)
+        // PR-07 / WH-03: the preview shows slices in list order.
+        assertEquals(draftNames, effectiveWheel(vm.state.value.draft).outcomes.map { it.prize.name })
+
+        vm.deletePrize(draftId("Giảm 10%"))
+        vm.openEditor(null)
+        vm.updateEditor { it.copy(name = "Bánh", percentText = "0") }
+        vm.commitEditor()
+        vm.move(from = 3, to = 1)
+        val names = vm.state.value.draft.filter { it.probabilityBp > 0 }.map { it.name }
+        assertEquals(names, effectiveWheel(vm.state.value.draft).outcomes.map { it.prize.name })
+    }
 }
