@@ -192,10 +192,11 @@ class SettingsViewModelTest {
         vm.setTheme(ThemeId.TET)
         vm.setSoundEnabled(false)
         vm.setResultSeconds(25)
-        await { runBlocking { settings.settings.first() }.themeId == ThemeId.TET }
-        val s = runBlocking { settings.settings.first() }
-        assertFalse(s.soundEnabled)
-        assertEquals(25, s.resultDisplaySeconds)
+        // Each change is its own DataStore edit; wait until all three have landed.
+        await {
+            val s = runBlocking { settings.settings.first() }
+            s.themeId == ThemeId.TET && !s.soundEnabled && s.resultDisplaySeconds == 25
+        }
     }
 
     private fun type(pin: String) = pin.forEach { vm.pressChangePin(PinKey.Digit(it.digitToInt())) }
