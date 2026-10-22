@@ -15,9 +15,11 @@ fun WheelRoute() {
     val actions = remember(vm) {
         WheelActions(
             onSpin = vm::spinWithButton,
+            onFlick = vm::spinWithFlick,
             onSpinFinished = vm::onSpinAnimationFinished,
             onDismissResult = vm::dismissResult,
+            onCornerHold = {},
         )
     }
-    WheelScreen(state, container.clock, actions)
+    WheelScreen(state, container.clock, container.sounds, actions)
 }

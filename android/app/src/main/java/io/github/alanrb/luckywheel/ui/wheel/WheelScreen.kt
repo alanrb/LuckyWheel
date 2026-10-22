@@ -3,6 +3,9 @@ package io.github.alanrb.luckywheel.ui.wheel
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.RenderEffect
+import androidx.compose.animation.core.EaseOutBack
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,6 +31,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameMillis
@@ -58,25 +65,34 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.github.alanrb.luckywheel.R
 import io.github.alanrb.luckywheel.domain.Clock
 import io.github.alanrb.luckywheel.domain.darken
+import io.github.alanrb.luckywheel.domain.flickStrength
 import io.github.alanrb.luckywheel.domain.rotationAt
+import io.github.alanrb.luckywheel.domain.sliceIndexUnderPointer
+import io.github.alanrb.luckywheel.sound.SoundEffects
 import io.github.alanrb.luckywheel.ui.rememberStoredImage
 import io.github.alanrb.luckywheel.ui.theme.AppText
 import io.github.alanrb.luckywheel.ui.themes.ThemeBackground
 import io.github.alanrb.luckywheel.ui.themes.ThemeSpec
 import io.github.alanrb.luckywheel.ui.themes.themeSpec
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 object WheelTestTags {
     const val SPIN_BUTTON = "spinButton"
     const val WHEEL = "wheel"
     const val OUT_OF_PRIZES = "outOfPrizes"
     const val RESULT = "resultOverlay"
+    const val CORNER = "cornerZone"
 }
 
 /** Callbacks from the customer screen, all forwarded to [WheelViewModel]. */
 class WheelActions(
     val onSpin: () -> Unit,
+    val onFlick: (direction: Int, strength: Double, fromRotation: Double) -> Unit,
     val onSpinFinished: () -> Unit,
     val onDismissResult: () -> Unit,
+    /** The hidden 3-second corner hold completed (ST-01). */
+    val onCornerHold: () -> Unit,
 )
 
 /**
@@ -84,7 +100,13 @@ class WheelActions(
  * overlay and the out-of-prizes state. Nothing on it hints at Settings (CS-03).
  */
 @Composable
-fun WheelScreen(state: WheelUiState, clock: Clock, actions: WheelActions, modifier: Modifier = Modifier) {
+fun WheelScreen(
+    state: WheelUiState,
+    clock: Clock,
+    sounds: SoundEffects,
+    actions: WheelActions,
+    modifier: Modifier = Modifier,
+) {
     val theme = themeSpec(state.settings.themeId)
     val background by rememberStoredImage(state.settings.customBackgroundPath)
     val logo by rememberStoredImage(state.settings.logoPath)
@@ -94,7 +116,39 @@ fun WheelScreen(state: WheelUiState, clock: Clock, actions: WheelActions, modifi
     KeepScreenOn(state.settings.keepScreenOn)
 
     val rotation = remember { mutableFloatStateOf(state.restRotation.toFloat()) }
+    val dragOffset = remember { mutableFloatStateOf(0f) }
+    val dragging = remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var springBack by remember { mutableStateOf<Job?>(null) }
     SpinAnimation(state, clock, rotation::floatValue::set, actions.onSpinFinished)
+    TickSounds(state, theme, sounds, dragging::value) { rotation.floatValue + dragOffset.floatValue }
+
+    val canDrag = idle && state.loaded && !outOfPrizes
+    val dragModifier = Modifier.wheelDrag(
+        enabled = canDrag,
+        onDrag = { delta ->
+            springBack?.cancel()
+            dragging.value = true
+            dragOffset.floatValue += delta
+        },
+        onRelease = { velocity, dragged ->
+            dragging.value = false
+            val strength = flickStrength(velocity, dragged)
+            if (strength != null) {
+                // SP-02: spin in the flick's direction, starting where the finger left the wheel.
+                rotation.floatValue += dragOffset.floatValue
+                dragOffset.floatValue = 0f
+                actions.onFlick(if (velocity >= 0) 1 else -1, strength, rotation.floatValue.toDouble())
+            } else {
+                // SP-03: too weak, ease back to the resting angle.
+                springBack = scope.launch {
+                    animate(dragOffset.floatValue, 0f, animationSpec = tween(420, easing = EaseOutBack)) { v, _ ->
+                        dragOffset.floatValue = v
+                    }
+                }
+            }
+        },
+    )
 
     BoxWithConstraints(modifier.fillMaxSize().background(Color.Black)) {
         val layout = wheelLayout(maxWidth.value, maxHeight.value, hasLogo = state.settings.logoPath != null)
@@ -102,7 +156,9 @@ fun WheelScreen(state: WheelUiState, clock: Clock, actions: WheelActions, modifi
         ThemeBackground(theme, background, unitPx = u * LocalDensity.current.density, Modifier.fillMaxSize())
 
         val wheel: @Composable () -> Unit = {
-            WheelWithState(state, theme, layout, outOfPrizes, rotation::floatValue)
+            WheelWithState(state, theme, layout, outOfPrizes, dragModifier) {
+                rotation.floatValue + dragOffset.floatValue
+            }
         }
         val button: @Composable () -> Unit = {
             SpinButton(theme, layout, enabled = idle && state.loaded && !outOfPrizes, onClick = actions.onSpin)
@@ -146,6 +202,13 @@ fun WheelScreen(state: WheelUiState, clock: Clock, actions: WheelActions, modifi
             }
         }
 
+        CornerHoldZone(
+            enabled = idle && state.loaded,
+            darkTheme = theme.isDark,
+            onTriggered = actions.onCornerHold,
+            modifier = Modifier.align(Alignment.TopStart),
+        )
+
         val revealed = state.phase as? SpinPhase.Revealed
         if (revealed != null) {
             ResultOverlay(revealed, theme, u, state.settings.resultDisplaySeconds, actions.onDismissResult)
@@ -159,6 +222,7 @@ private fun WheelWithState(
     theme: ThemeSpec,
     layout: WheelLayout,
     outOfPrizes: Boolean,
+    dragModifier: Modifier,
     rotation: () -> Float,
 ) {
     val description = stringResource(R.string.cd_wheel)
@@ -170,6 +234,7 @@ private fun WheelWithState(
             modifier = Modifier
                 .fillMaxSize()
                 .testTag(WheelTestTags.WHEEL)
+                .then(dragModifier)
                 .semantics { contentDescription = description }
                 .then(if (outOfPrizes) Modifier.greyedOut() else Modifier),
         )
@@ -262,6 +327,30 @@ private fun SpinAnimation(state: WheelUiState, clock: Clock, setRotation: (Float
                     break
                 }
             }
+        }
+    }
+}
+
+/** SP-07: a tick each time a slice boundary passes the pointer, while spinning or dragging. */
+@Composable
+private fun TickSounds(
+    state: WheelUiState,
+    theme: ThemeSpec,
+    sounds: SoundEffects,
+    dragging: () -> Boolean,
+    displayedRotation: () -> Float,
+) {
+    val current by rememberUpdatedState(state)
+    LaunchedEffect(sounds, theme.id) {
+        var last = -1
+        snapshotFlow { displayedRotation() }.collect { r ->
+            val s = current
+            val n = s.slices.size
+            if (n == 0) return@collect
+            val index = sliceIndexUnderPointer(r.toDouble(), n)
+            val moving = s.phase is SpinPhase.Spinning || dragging()
+            if (last >= 0 && index != last && moving && s.settings.soundEnabled) sounds.tick(theme.id)
+            last = index
         }
     }
 }

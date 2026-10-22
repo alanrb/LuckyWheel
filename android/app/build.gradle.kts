@@ -38,6 +38,7 @@ android {
         unitTests {
             isIncludeAndroidResources = true
             all {
+                it.maxHeapSize = "3g"
                 // Robolectric reaches into JDK internals that newer JVMs no longer export by default.
                 it.jvmArgs(
                     "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED",
