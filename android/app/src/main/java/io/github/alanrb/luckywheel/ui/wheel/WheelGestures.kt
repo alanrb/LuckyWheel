@@ -17,12 +17,15 @@ private const val VELOCITY_WINDOW_MS = 100L
 /**
  * Lets the customer turn the wheel with a finger (SP-02). The wheel follows the finger's angle around
  * the centre; on release [onRelease] gets the angular velocity (degrees per second, clockwise
- * positive) and the total angle dragged. Touches outside the wheel or on the hub are ignored.
+ * positive) and the total angle dragged. Touches outside the wheel or on the hub are ignored. If the
+ * gesture is cut short without a release (the modifier is disabled or the pointer is cancelled),
+ * [onCancel] runs instead.
  */
 fun Modifier.wheelDrag(
     enabled: Boolean,
     onDrag: (deltaDeg: Float) -> Unit,
     onRelease: (velocityDegPerSec: Double, draggedDeg: Double) -> Unit,
+    onCancel: () -> Unit,
 ): Modifier = pointerInput(enabled) {
     if (!enabled) return@pointerInput
     awaitEachGesture {
@@ -36,6 +39,8 @@ fun Modifier.wheelDrag(
         var lastAngle = angleDeg(down.position - centre)
         var dragged = 0.0
         val samples = ArrayDeque<Pair<Long, Double>>()
+        var released = false
+        try {
         while (true) {
             val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
             if (!change.pressed) {
@@ -43,6 +48,7 @@ fun Modifier.wheelDrag(
                 val recent = samples.filter { now - it.first < VELOCITY_WINDOW_MS }
                 val sum = recent.sumOf { it.second }
                 val span = if (recent.isEmpty()) 1.0 else max(0.016, (now - recent.first().first) / 1000.0)
+                released = true
                 onRelease(sum / span, dragged)
                 break
             }
@@ -58,6 +64,9 @@ fun Modifier.wheelDrag(
             }
             onDrag(delta.toFloat())
             change.consume()
+        }
+        } finally {
+            if (!released) onCancel()
         }
     }
 }

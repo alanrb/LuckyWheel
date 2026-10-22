@@ -127,6 +127,22 @@ fun WheelScreen(
     SpinAnimation(state, clock, rotation::floatValue::set, actions.onSpinFinished)
     TickSounds(state, theme, sounds, dragging::value) { rotation.floatValue + dragOffset.floatValue }
 
+    val springBackToRest: () -> Unit = {
+        springBack = scope.launch {
+            animate(dragOffset.floatValue, 0f, animationSpec = tween(420, easing = EaseOutBack)) { v, _ ->
+                dragOffset.floatValue = v
+            }
+        }
+    }
+    // A spin always starts from the angle it plans from; never keep a leftover drag offset on top of it.
+    LaunchedEffect(state.phase) {
+        if (state.phase is SpinPhase.Spinning) {
+            springBack?.cancel()
+            dragOffset.floatValue = 0f
+            dragging.value = false
+        }
+    }
+
     val canDrag = idle && state.loaded && !outOfPrizes
     val dragModifier = Modifier.wheelDrag(
         enabled = canDrag,
@@ -145,12 +161,12 @@ fun WheelScreen(
                 actions.onFlick(if (velocity >= 0) 1 else -1, strength, rotation.floatValue.toDouble())
             } else {
                 // SP-03: too weak, ease back to the resting angle.
-                springBack = scope.launch {
-                    animate(dragOffset.floatValue, 0f, animationSpec = tween(420, easing = EaseOutBack)) { v, _ ->
-                        dragOffset.floatValue = v
-                    }
-                }
+                springBackToRest()
             }
+        },
+        onCancel = {
+            dragging.value = false
+            springBackToRest()
         },
     )
 
@@ -167,7 +183,11 @@ fun WheelScreen(
             }
         }
         val button: @Composable () -> Unit = {
-            SpinButton(theme, layout, enabled = idle && state.loaded && !outOfPrizes, onClick = actions.onSpin)
+            // No button spin while a finger is turning the wheel (PRD §11 "tap while flicking"); checked again
+            // at tap time because a second finger can land before the next frame disables the button.
+            SpinButton(theme, layout, enabled = idle && state.loaded && !outOfPrizes && !dragging.value) {
+                if (!dragging.value) actions.onSpin()
+            }
         }
         val logoView: @Composable () -> Unit = {
             logo?.let {
