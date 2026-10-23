@@ -22,6 +22,7 @@ import io.github.alanrb.luckywheel.sound.SoundEffects
 import io.github.alanrb.luckywheel.sound.SoundPoolEffects
 import io.github.alanrb.luckywheel.ui.pin.CreatePinViewModel
 import io.github.alanrb.luckywheel.ui.pin.PinEntryViewModel
+import io.github.alanrb.luckywheel.ui.settings.SettingsGate
 import io.github.alanrb.luckywheel.ui.settings.SettingsViewModel
 import io.github.alanrb.luckywheel.ui.wheel.WheelViewModel
 
@@ -40,6 +41,9 @@ class AppContainer(
     }
     val pinEntryViewModelFactory = viewModelFactory { initializer { PinEntryViewModel(pinManager) } }
     val createPinViewModelFactory = viewModelFactory { initializer { CreatePinViewModel(pinManager) } }
+    /** In-memory only: Settings needs the PIN again after a restart. */
+    val settingsGate = SettingsGate()
+
     val settingsViewModelFactory = viewModelFactory {
         initializer { SettingsViewModel(prizeRepository, settingsRepository, pinManager, imageStore) }
     }

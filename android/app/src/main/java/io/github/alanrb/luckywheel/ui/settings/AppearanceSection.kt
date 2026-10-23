@@ -56,11 +56,17 @@ fun themeCardTag(id: ThemeId) = "themeCard_${id.name}"
 
 /** TH-01..TH-06, LG-01..LG-03: theme, logo, custom background and decorations. */
 @Composable
-fun AppearanceSection(state: SettingsUiState, vm: SettingsViewModel) {
+fun AppearanceSection(state: SettingsUiState, vm: SettingsViewModel, pickerHooks: PickerHooks) {
     val settings = state.settings
     val theme = themeSpec(settings.themeId)
-    val pickLogo = rememberLauncherForActivityResult(PickVisualMedia()) { uri -> uri?.let(vm::importLogo) }
-    val pickBackground = rememberLauncherForActivityResult(PickVisualMedia()) { uri -> uri?.let(vm::importBackground) }
+    val pickLogo = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
+        pickerHooks.onResult()
+        uri?.let(vm::importLogo)
+    }
+    val pickBackground = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
+        pickerHooks.onResult()
+        uri?.let(vm::importBackground)
+    }
     val imagesOnly = PickVisualMediaRequest(PickVisualMedia.ImageOnly)
 
     Column(verticalArrangement = Arrangement.spacedBy(30.dp)) {
@@ -104,7 +110,10 @@ fun AppearanceSection(state: SettingsUiState, vm: SettingsViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PillButton(
                     stringResource(if (settings.logoPath != null) R.string.logo_change else R.string.pick_image),
-                    onClick = { pickLogo.launch(imagesOnly) },
+                    onClick = {
+                        pickerHooks.onLaunch()
+                        pickLogo.launch(imagesOnly)
+                    },
                 )
                 if (settings.logoPath != null) {
                     PillButton(stringResource(R.string.logo_remove), onClick = vm::removeLogo, kind = PillKind.OUTLINED)
@@ -141,7 +150,10 @@ fun AppearanceSection(state: SettingsUiState, vm: SettingsViewModel) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PillButton(
                     stringResource(if (settings.customBackgroundPath != null) R.string.bg_change else R.string.pick_image),
-                    onClick = { pickBackground.launch(imagesOnly) },
+                    onClick = {
+                        pickerHooks.onLaunch()
+                        pickBackground.launch(imagesOnly)
+                    },
                 )
                 if (settings.customBackgroundPath != null) {
                     PillButton(stringResource(R.string.bg_remove), onClick = vm::removeBackground, kind = PillKind.OUTLINED)

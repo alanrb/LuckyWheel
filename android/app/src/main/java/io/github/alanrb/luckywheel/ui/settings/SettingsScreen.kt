@@ -20,7 +20,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,6 +40,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.alanrb.luckywheel.LocalAppContainer
@@ -59,13 +65,55 @@ fun settingsNavTag(section: SettingsSection) = "settingsNav_${section.name}"
 @Composable
 fun SettingsRoute(onExit: () -> Unit) {
     val container = LocalAppContainer.current
+    val gate = container.settingsGate
+    if (!gate.unlocked) {
+        // Restored navigation (e.g. after the process was killed) must not skip the PIN.
+        LaunchedEffect(Unit) { onExit() }
+        Box(Modifier.fillMaxSize().background(AppColors.Background))
+        return
+    }
+    val exit: () -> Unit = {
+        gate.lock()
+        onExit()
+    }
+    LockWhenLeavingApp(gate, exit)
     val vm: SettingsViewModel = viewModel(factory = container.settingsViewModelFactory)
     val state by vm.state.collectAsStateWithLifecycle()
-    SettingsScreen(state, vm, container.sounds, onExit)
+    SettingsScreen(
+        state, vm, container.sounds, exit,
+        pickerHooks = PickerHooks(onLaunch = { gate.pickerOpen = true }, onResult = { gate.pickerOpen = false }),
+    )
 }
 
+/** Leaving the app (Home, recents, another app) closes and locks Settings; rotating or picking a photo does not. */
 @Composable
-fun SettingsScreen(state: SettingsUiState, vm: SettingsViewModel, sounds: SoundEffects, onExit: () -> Unit) {
+private fun LockWhenLeavingApp(gate: SettingsGate, exit: () -> Unit) {
+    // The Activity's lifecycle, not the navigation entry's: entries also stop during transitions.
+    val activity = LocalActivity.current
+    val lifecycleOwner = (activity as? LifecycleOwner) ?: LocalLifecycleOwner.current
+    val currentExit by rememberUpdatedState(exit)
+    DisposableEffect(lifecycleOwner, activity) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && activity?.isChangingConfigurations != true && !gate.pickerOpen) {
+                currentExit()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+}
+
+/** Lets the Appearance section tell the gate that the system photo picker is open. */
+class PickerHooks(val onLaunch: () -> Unit = {}, val onResult: () -> Unit = {})
+
+@Composable
+fun SettingsScreen(
+    state: SettingsUiState,
+    vm: SettingsViewModel,
+    sounds: SoundEffects,
+    onExit: () -> Unit,
+    pickerHooks: PickerHooks = PickerHooks(),
+) {
     val exit by rememberUpdatedState(onExit)
     var touches by remember { mutableIntStateOf(0) }
     LaunchedEffect(touches, state) {
@@ -107,7 +155,7 @@ fun SettingsScreen(state: SettingsUiState, vm: SettingsViewModel, sounds: SoundE
                     ) {
                         when (state.section) {
                             SettingsSection.PRIZES -> PrizesSection(state, themeSpec(state.settings.themeId), vm)
-                            SettingsSection.APPEARANCE -> AppearanceSection(state, vm)
+                            SettingsSection.APPEARANCE -> AppearanceSection(state, vm, pickerHooks)
                             SettingsSection.SOUND -> SoundSection(state, vm, sounds)
                             SettingsSection.DISPLAY -> DisplaySection(state, vm)
                             SettingsSection.SECURITY -> SecuritySection(state, vm)

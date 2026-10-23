@@ -44,6 +44,7 @@ fun WheelRoute(onOpenSettings: () -> Unit) {
         if (pinOpen && pinState.unlocked) {
             pinOpen = false
             pinVm.reset()
+            container.settingsGate.unlock()
             onOpenSettings()
         }
     }
