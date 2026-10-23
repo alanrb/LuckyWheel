@@ -134,6 +134,8 @@ class PinFlowTest {
     }
 
     private fun holdCorner() {
+        // The corner only works once the wheel has loaded and is idle; QUAY is enabled at the same moment.
+        awaitCondition { compose.onAllNodes(androidx.compose.ui.test.hasTestTag(WheelTestTags.SPIN_BUTTON) and androidx.compose.ui.test.isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag(WheelTestTags.CORNER).performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(3_100)
         compose.onNodeWithTag(WheelTestTags.CORNER).performTouchInput { up() }
