@@ -1,0 +1,188 @@
+package com.github.luckywheel.ui.wheel
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.github.luckywheel.data.AppSettings
+import com.github.luckywheel.data.PrizeRepository
+import com.github.luckywheel.data.SettingsRepository
+import com.github.luckywheel.domain.Clock
+import com.github.luckywheel.domain.Outcome
+import com.github.luckywheel.domain.RandomSource
+import com.github.luckywheel.domain.SpinPlan
+import com.github.luckywheel.domain.SpinTuning
+import com.github.luckywheel.domain.assignSliceColors
+import com.github.luckywheel.domain.effectiveWheel
+import com.github.luckywheel.domain.normalizeDegrees
+import com.github.luckywheel.domain.planSpin
+import com.github.luckywheel.ui.themes.themeSpec
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+data class WheelSlice(val prizeId: Long, val name: String, val color: Int, val isFallback: Boolean)
+
+sealed interface SpinPhase {
+    data object Idle : SpinPhase
+
+    /** The outcome is already decided; the animation only shows it (PRD §3.4). */
+    data class Spinning(
+        val plan: SpinPlan,
+        val startedAtMs: Long,
+        val prizeId: Long,
+        val prizeName: String,
+        val isFallback: Boolean,
+    ) : SpinPhase
+
+    data class Revealed(val name: String, val isReal: Boolean, val revealId: Long) : SpinPhase
+}
+
+data class WheelUiState(
+    val loaded: Boolean = false,
+    val slices: List<WheelSlice> = emptyList(),
+    val outcomes: List<Outcome> = emptyList(),
+    val spinAllowed: Boolean = false,
+    val fallbackName: String = "",
+    val phase: SpinPhase = SpinPhase.Idle,
+    val restRotation: Double = 0.0,
+    val settings: AppSettings = AppSettings(),
+)
+
+class WheelViewModel(
+    private val prizes: PrizeRepository,
+    settings: SettingsRepository,
+    private val random: RandomSource,
+    private val clock: Clock,
+    private val savedState: SavedStateHandle,
+    /** Identifies this process, so a spin saved by a process that has since died is not revealed. */
+    private val processToken: Long = CURRENT_PROCESS,
+) : ViewModel() {
+
+    private val phase = MutableStateFlow(restoreSpin() ?: SpinPhase.Idle)
+    private val rest = MutableStateFlow(savedState.get<Double>(KEY_REST) ?: 0.0)
+    private var revealing = false
+    private var revealCount = 0L
+
+    val state: StateFlow<WheelUiState> =
+        combine(prizes.prizes, settings.settings, phase, rest) { list, s, ph, r ->
+            val wheel = effectiveWheel(list)
+            val colors = assignSliceColors(wheel.outcomes, themeSpec(s.themeId).palette)
+            WheelUiState(
+                loaded = true,
+                slices = wheel.outcomes.mapIndexed { i, o ->
+                    WheelSlice(o.prize.id, o.prize.name, colors[i], o.prize.isFallback)
+                },
+                outcomes = wheel.outcomes,
+                spinAllowed = wheel.spinAllowed,
+                fallbackName = list.firstOrNull { it.isFallback }?.name.orEmpty(),
+                phase = ph,
+                restRotation = r,
+                settings = s,
+            )
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, WheelUiState())
+
+    /** SP-01: clockwise at medium strength. */
+    fun spinWithButton() = spinWithFlick(direction = 1, strength = SpinTuning.BUTTON_STRENGTH, fromRotation = rest.value)
+
+    /** Starts at most one spin (SP-06); the draw happens here, before any animation. */
+    fun spinWithFlick(direction: Int, strength: Double, fromRotation: Double) {
+        if (phase.value != SpinPhase.Idle) return
+        val current = state.value
+        if (!current.loaded || !current.spinAllowed || current.outcomes.isEmpty()) return
+        val plan = planSpin(current.outcomes, random, fromRotation, direction, strength)
+        val prize = current.outcomes[plan.outcomeIndex].prize
+        val spin = SpinPhase.Spinning(plan, clock.elapsedMs(), prize.id, prize.name, prize.isFallback)
+        saveSpin(spin)
+        phase.value = spin
+    }
+
+    /**
+     * Reveals the pre-decided result and awards it once (PRD §5.4). If a limited prize somehow has no
+     * stock left, the fallback is shown instead so a prize is never awarded beyond its quantity.
+     */
+    fun onSpinAnimationFinished() {
+        val spin = phase.value as? SpinPhase.Spinning ?: return
+        if (revealing) return
+        revealing = true
+        viewModelScope.launch {
+            val awarded = try {
+                prizes.claimPrize(spin.prizeId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false
+            }
+            val name = if (awarded) spin.prizeName else state.value.fallbackName
+            rest.value = normalizeDegrees(spin.plan.endRotation)
+            savedState[KEY_REST] = rest.value
+            clearSpin()
+            phase.value = SpinPhase.Revealed(name, isReal = awarded && !spin.isFallback, revealId = ++revealCount)
+            revealing = false
+        }
+    }
+
+    fun dismissResult() {
+        if (phase.value is SpinPhase.Revealed) phase.value = SpinPhase.Idle
+    }
+
+    private fun saveSpin(spin: SpinPhase.Spinning) {
+        savedState[KEY_INDEX] = spin.plan.outcomeIndex
+        savedState[KEY_START] = spin.plan.startRotation
+        savedState[KEY_END] = spin.plan.endRotation
+        savedState[KEY_DURATION] = spin.plan.durationMs
+        savedState[KEY_STARTED] = spin.startedAtMs
+        savedState[KEY_NAME] = spin.prizeName
+        savedState[KEY_FALLBACK] = spin.isFallback
+        savedState[KEY_PROCESS] = processToken
+        savedState[KEY_PRIZE] = spin.prizeId
+    }
+
+    private fun clearSpin() {
+        listOf(KEY_PROCESS, KEY_PRIZE, KEY_INDEX, KEY_START, KEY_END, KEY_DURATION, KEY_STARTED, KEY_NAME, KEY_FALLBACK)
+            .forEach { savedState.remove<Any>(it) }
+    }
+
+    /**
+     * A spin survives the ViewModel being rebuilt in the same process. One saved by a process that has
+     * since been killed is discarded unrevealed, leaving the quantity untouched (PRD §5.4, §11).
+     */
+    private fun restoreSpin(): SpinPhase.Spinning? {
+        val prizeId = savedState.get<Long>(KEY_PRIZE) ?: return null
+        if (savedState.get<Long>(KEY_PROCESS) != processToken) {
+            clearSpin()
+            return null
+        }
+        return SpinPhase.Spinning(
+            plan = SpinPlan(
+                outcomeIndex = savedState[KEY_INDEX] ?: return null,
+                startRotation = savedState[KEY_START] ?: return null,
+                endRotation = savedState[KEY_END] ?: return null,
+                durationMs = savedState[KEY_DURATION] ?: return null,
+            ),
+            startedAtMs = savedState[KEY_STARTED] ?: return null,
+            prizeId = prizeId,
+            prizeName = savedState[KEY_NAME] ?: return null,
+            isFallback = savedState[KEY_FALLBACK] ?: return null,
+        )
+    }
+
+    companion object {
+        /** Fixed for the lifetime of this process. */
+        val CURRENT_PROCESS: Long = java.security.SecureRandom().nextLong()
+
+        private const val KEY_REST = "wheel.rest"
+        private const val KEY_PROCESS = "spin.process"
+        private const val KEY_PRIZE = "spin.prizeId"
+        private const val KEY_INDEX = "spin.index"
+        private const val KEY_START = "spin.start"
+        private const val KEY_END = "spin.end"
+        private const val KEY_DURATION = "spin.duration"
+        private const val KEY_STARTED = "spin.startedAt"
+        private const val KEY_NAME = "spin.name"
+        private const val KEY_FALLBACK = "spin.fallback"
+    }
+}

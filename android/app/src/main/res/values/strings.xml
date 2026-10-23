@@ -1,0 +1,154 @@
+<resources>
+    <string name="app_name">Vòng quay may mắn</string>
+
+    <!-- Seed prizes (PR-08) -->
+    <string name="seed_fallback">Chúc may mắn lần sau</string>
+    <string name="seed_discount">Giảm 10%</string>
+    <string name="seed_coffee">Cà phê sữa đá</string>
+    <string name="seed_tumbler">Ly giữ nhiệt</string>
+
+    <!-- Themes -->
+    <string name="theme_default">Mặc định</string>
+    <string name="theme_noel">Giáng sinh (Noel)</string>
+    <string name="theme_tet">Tết Nguyên Đán</string>
+    <string name="theme_trung_thu">Trung Thu</string>
+    <string name="theme_love">Yêu thương</string>
+    <string name="theme_halloween">Halloween</string>
+
+    <!-- Customer screen -->
+    <string name="spin_button">QUAY</string>
+    <string name="out_of_prizes">Đã hết quà</string>
+    <string name="result_congrats">Chúc mừng! Bạn nhận được</string>
+    <string name="result_tap_to_close">Chạm để đóng</string>
+    <string name="cd_wheel">Vòng quay giải thưởng</string>
+
+    <!-- PIN -->
+    <string name="pin_enter_title">Nhập mã PIN</string>
+    <string name="pin_wrong">Sai mã PIN. Còn %1$d lần thử.</string>
+    <string name="pin_locked">Đã nhập sai 5 lần. Thử lại sau %1$d giây.</string>
+    <string name="cancel">Huỷ</string>
+    <string name="cd_pin_delete">Xoá một số</string>
+    <string name="create_pin_eyebrow">Thiết lập lần đầu</string>
+    <string name="create_pin_heading">Tạo mã PIN cho phần Cài đặt</string>
+    <string name="create_pin_body">Mã PIN gồm 4 chữ số. Chỉ người biết mã mới mở được Cài đặt để chỉnh giải thưởng và giao diện.</string>
+    <string name="pin_forgot_note">Nếu quên mã PIN, cách duy nhất là xoá dữ liệu của ứng dụng. Mọi cài đặt sẽ được đặt lại.</string>
+    <string name="create_pin_step1">Nhập mã PIN mới</string>
+    <string name="create_pin_step2">Nhập lại để xác nhận</string>
+    <string name="create_pin_mismatch">Hai lần nhập không khớp. Vui lòng tạo lại.</string>
+
+    <!-- Settings shell -->
+    <string name="settings_title">Cài đặt</string>
+    <string name="back_to_wheel">Quay lại vòng quay</string>
+    <string name="section_prizes">Giải thưởng</string>
+    <string name="section_appearance">Giao diện</string>
+    <string name="section_sound">Âm thanh</string>
+    <string name="section_display">Hiển thị</string>
+    <string name="section_security">Bảo mật</string>
+    <string name="nav_sub_prizes">%1$d giải</string>
+    <string name="nav_sub_sound_on">Đang bật</string>
+    <string name="nav_sub_sound_off">Đang tắt</string>
+    <string name="nav_sub_display">Kết quả hiện %1$d giây</string>
+    <string name="nav_sub_security">Đổi mã PIN</string>
+
+    <!-- Prizes -->
+    <string name="prize_count">%1$d/%2$d giải</string>
+    <string name="reorder_hint">Kéo ⠿ để đổi thứ tự ô trên vòng quay</string>
+    <string name="add_prize">+ Thêm giải</string>
+    <string name="col_name">Tên giải</string>
+    <string name="col_percent">Tỉ lệ</string>
+    <string name="col_remaining">Còn lại</string>
+    <string name="badge_fallback">Giải mặc định</string>
+    <string name="badge_out">Hết quà</string>
+    <string name="badge_hidden">Không hiện trên vòng</string>
+    <string name="badge_custom_color">Màu tuỳ chọn</string>
+    <string name="remaining_count">Còn %1$d</string>
+    <string name="remaining_unlimited">∞</string>
+    <string name="cd_drag_handle">Kéo để đổi thứ tự</string>
+    <string name="preview_title">Xem trước</string>
+    <string name="preview_note">Ô bằng nhau. Giải hết quà hoặc 0% không hiện.</string>
+    <string name="total_title">Tổng tỉ lệ</string>
+    <string name="issue_short">Còn thiếu %1$s để đủ 100%%.</string>
+    <string name="issue_over">Vượt quá %1$s so với 100%%.</string>
+    <string name="issue_too_many">Tối đa 12 giải, kể cả giải mặc định.</string>
+    <string name="issue_too_few">Cần ít nhất 2 giải có tỉ lệ lớn hơn 0%.</string>
+    <string name="saved_ok">Đã lưu. Vòng quay đã cập nhật.</string>
+    <string name="valid_unsaved">Hợp lệ. Nhấn Lưu để áp dụng.</string>
+    <string name="valid_unchanged">Đủ 100%. Không có thay đổi.</string>
+    <string name="save_changes">Lưu thay đổi</string>
+    <string name="discard_changes">Bỏ thay đổi</string>
+
+    <!-- Prize editor -->
+    <string name="editor_title_edit">Sửa giải</string>
+    <string name="editor_title_add">Thêm giải mới</string>
+    <string name="field_name">Tên giải</string>
+    <string name="name_counter">%1$d/%2$d</string>
+    <string name="name_placeholder">Ví dụ: Bánh croissant</string>
+    <string name="err_name">Vui lòng nhập tên giải.</string>
+    <string name="field_color">Màu ô</string>
+    <string name="color_theme">Theo chủ đề</string>
+    <string name="color_custom">Tuỳ chọn</string>
+    <string name="color_other">Màu khác</string>
+    <string name="field_percent">Tỉ lệ trúng</string>
+    <string name="err_percent">Nhập số từ 0 đến 100, tối đa 2 chữ số thập phân.</string>
+    <string name="field_quantity">Số lượng còn lại</string>
+    <string name="qty_unlimited_fixed">∞ Không giới hạn</string>
+    <string name="fallback_qty_note">Giải mặc định luôn không giới hạn và không thể xoá.</string>
+    <string name="qty_unlimited">Không giới hạn</string>
+    <string name="qty_limited">Giới hạn</string>
+    <string name="err_qty">Số lượng phải là số nguyên từ 0 trở lên.</string>
+    <string name="qty_zero_note">Số lượng 0: giải sẽ hết quà và không hiện trên vòng quay.</string>
+    <string name="qty_note">Giảm 1 mỗi lần có khách trúng.</string>
+    <string name="cd_qty_minus">Giảm số lượng</string>
+    <string name="cd_qty_plus">Tăng số lượng</string>
+    <string name="delete_prize">Xoá giải</string>
+    <string name="done">Xong</string>
+    <string name="color_picker_title">Chọn màu</string>
+    <string name="color_hue">Sắc màu</string>
+    <string name="color_saturation">Độ đậm</string>
+    <string name="color_brightness">Độ sáng</string>
+    <string name="color_pick">Chọn</string>
+
+    <!-- Appearance -->
+    <string name="appearance_hint">Đổi chủ đề sẽ áp dụng ngay. Giải có màu tuỳ chọn giữ nguyên màu.</string>
+    <string name="theme_active">Đang dùng</string>
+    <string name="logo_none">Chưa có logo</string>
+    <string name="logo_title">Logo quán</string>
+    <string name="logo_body">Hiện ở giữa phía trên màn hình. PNG nền trong suốt cho kết quả đẹp nhất. Ảnh được lưu trong ứng dụng.</string>
+    <string name="logo_change">Đổi logo</string>
+    <string name="pick_image">Chọn ảnh</string>
+    <string name="logo_remove">Xoá logo</string>
+    <string name="bg_title">Hình nền tuỳ chỉnh</string>
+    <string name="bg_body">Thay hình nền của chủ đề. Màu vòng quay, hiệu ứng và âm thanh vẫn theo chủ đề. Một lớp phủ nhẹ giúp chữ luôn dễ đọc.</string>
+    <string name="bg_change">Đổi hình nền</string>
+    <string name="bg_remove">Dùng nền chủ đề</string>
+    <string name="bg_label_custom">Hình nền tuỳ chỉnh</string>
+    <string name="bg_label_theme">Nền của chủ đề</string>
+    <string name="deco_title">Hiện hiệu ứng trang trí</string>
+    <string name="deco_body">Tắt khi hình nền tuỳ chỉnh đã nhiều chi tiết.</string>
+    <string name="image_import_failed">Không đọc được ảnh. Vui lòng chọn ảnh khác.</string>
+
+    <!-- Sound -->
+    <string name="sound_title">Bật âm thanh</string>
+    <string name="sound_body">Tiếng tích khi quay và nhạc khi có kết quả, theo chủ đề. Dùng âm lượng media của thiết bị.</string>
+    <string name="test_win">Nghe thử: trúng giải</string>
+    <string name="test_lose">Nghe thử: chúc may mắn</string>
+
+    <!-- Display -->
+    <string name="result_time_title">Thời gian hiển thị kết quả</string>
+    <string name="result_time_body">Sau thời gian này, kết quả tự đóng. Khách cũng có thể chạm để đóng.</string>
+    <string name="seconds_value">%1$d giây</string>
+    <string name="keep_on_title">Giữ màn hình luôn sáng</string>
+    <string name="keep_on_body">Màn hình không tắt khi đang hiện vòng quay.</string>
+
+    <!-- Security -->
+    <string name="pin_title">Mã PIN</string>
+    <string name="pin_changed">Đã đổi mã PIN.</string>
+    <string name="pin_purpose">Dùng để mở phần Cài đặt.</string>
+    <string name="change_pin">Đổi mã PIN</string>
+    <string name="change_step">Bước %1$d/3</string>
+    <string name="change_current">Nhập mã PIN hiện tại</string>
+    <string name="change_new">Nhập mã PIN mới</string>
+    <string name="change_confirm">Nhập lại mã PIN mới</string>
+    <string name="err_current_wrong">Mã PIN hiện tại không đúng.</string>
+    <string name="err_new_mismatch">Hai lần nhập không khớp. Nhập lại mã PIN mới.</string>
+</resources>
