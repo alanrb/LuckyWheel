@@ -1,4 +1,4 @@
-# Vòng quay may mắn · Café Lucky Wheel
+# Vòng quay may mắn · Lucky Wheel
 
 [English](#english) · [Tiếng Việt](#tiếng-việt)
 
@@ -8,7 +8,7 @@
 
 ## English
 
-Café Lucky Wheel is a prize wheel for cafés, made for an Android tablet at the counter. Customers see a full-screen wheel and spin it. The owner sets up the prizes, their chances and how many of each are left, plus the café logo and a seasonal theme, in a Settings area protected by a PIN.
+Lucky Wheel is a prize wheel for cafés, made for an Android tablet at the counter. Customers see a full-screen wheel and spin it. The owner sets up the prizes, their chances and how many of each are left, plus the café logo and a seasonal theme, in a Settings area protected by a PIN.
 
 The app works fully offline. It has no internet access, no accounts and no tracking, and everything stays on the tablet. The customer screen is in Vietnamese.
 
