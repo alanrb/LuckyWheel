@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "io.github.alanrb.luckywheel"
+    namespace = "com.github.luckywheel"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "io.github.alanrb.luckywheel"
+        applicationId = "com.github.luckywheel"
         minSdk = 33
         targetSdk = 37
         versionCode = 1
