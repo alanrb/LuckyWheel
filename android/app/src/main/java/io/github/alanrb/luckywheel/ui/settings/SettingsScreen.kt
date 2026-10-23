@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -121,6 +122,14 @@ fun SettingsScreen(
         exit()
     }
     var pickingColor by remember { mutableIntStateOf(0) }
+    // Back closes what is open first; only then does it leave Settings.
+    BackHandler(enabled = pickingColor > 0 || state.editor != null || state.changePin != null) {
+        when {
+            pickingColor > 0 -> pickingColor = 0
+            state.editor != null -> vm.cancelEditor()
+            else -> vm.cancelChangePin()
+        }
+    }
 
     Box(
         Modifier
